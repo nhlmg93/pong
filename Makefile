@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -std=c11
 LDFLAGS = -lraylib -lm -lpthread -ldl -lrt -lX11
 
-astroids: main.c
+pong: main.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 SOURCES := $(wildcard *.c) $(wildcard *.h)
@@ -10,10 +10,10 @@ SOURCES := $(wildcard *.c) $(wildcard *.h)
 fmt:
 	clang-format -i $(SOURCES)
 
-run: astroids
-	./astroids
+run: pong
+	./pong
 
 clean:
-	rm -f astroids
+	rm -f pong
 
 .PHONY: fmt run clean
