@@ -8,6 +8,7 @@
 #define PADDLE_X_INSET 30.0f
 #define PADDLE_WIDTH 15.0f
 #define PADDLE_HEIGHT 100.0f
+#define PADDLE_SPEED 400.0f
 
 #define BALL_SPEED 350.0f
 
@@ -50,10 +51,10 @@ void reset_game(void);
 
 void update_player_one(float dt);
 
-void update_player_two(Entity *player, Entity *ball, float dt);
-void update_ball(Entity *ball, float dt);
-void draw_ball(Entity *ball);
-void draw_paddle(Entity *player);
+void update_player_two(float dt);
+void update_ball(float dt);
+void draw_ball(void);
+void draw_paddles(void);
 void check_collisions(void);
 
 EntityId playerOneId;
@@ -91,38 +92,43 @@ void reset_game(void)
 void update_player_one(float dt)
 {
     Entity *player = &entities[playerOneId];
-    const float speed = 400.0f;
 
     player->velocity = Vector2Zero();
     if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
-        player->velocity = (Vector2){0.0f, -speed};
+        player->velocity = (Vector2){0.0f, -PADDLE_SPEED};
     if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN))
-        player->velocity = (Vector2){0.0f, speed};
+        player->velocity = (Vector2){0.0f, PADDLE_SPEED};
 
     player->position = Vector2Add(player->position, Vector2Scale(player->velocity, dt));
     player->position.y = Clamp(player->position.y, (PADDLE_HEIGHT / 2.0f), SCREEN_HEIGHT - (PADDLE_HEIGHT / 2.0f));
 }
 
-void update_ball(Entity *ball, float dt)
+void update_ball(float dt)
 {
+    Entity *ball = &entities[ballId];
     ball->position = Vector2Add(ball->position, Vector2Scale(ball->velocity, dt));
 }
 
-void draw_ball(Entity *ball)
+void draw_ball(void)
 {
+    Entity *ball = &entities[ballId];
     const float radius = 10.0f;
     DrawCircleV(ball->position, radius, WHITE);
 }
 
-void draw_paddle(Entity *player)
+void draw_paddles(void)
 {
-    Rectangle rect = {
-        player->position.x - (PADDLE_WIDTH / 2.0f),
-        player->position.y - (PADDLE_HEIGHT / 2.0f),
-        PADDLE_WIDTH,
-        PADDLE_HEIGHT,
-    };
-    DrawRectangleRec(rect, WHITE);
+    EntityId ids[] = {playerOneId, playerTwoId};
+    for (int i = 0; i < 2; i++) {
+        Entity *player = &entities[ids[i]];
+        Rectangle rect = {
+            player->position.x - (PADDLE_WIDTH / 2.0f),
+            player->position.y - (PADDLE_HEIGHT / 2.0f),
+            PADDLE_WIDTH,
+            PADDLE_HEIGHT,
+        };
+        DrawRectangleRec(rect, WHITE);
+    }
 }
 
 void check_collisions(void)
@@ -176,17 +182,18 @@ void check_collisions(void)
     }
 }
 
-void update_player_two(Entity *player, Entity *ball, float dt)
+void update_player_two(float dt)
 {
-    const float speed = 400.0f;
+    Entity *player = &entities[playerTwoId];
+    Entity *ball = &entities[ballId];
 
     float target_y = ball->position.y;
 
     player->velocity = Vector2Zero();
     if (player->position.y < target_y - 5.0f)
-        player->velocity = (Vector2){0.0f, speed};
+        player->velocity = (Vector2){0.0f, PADDLE_SPEED};
     else if (player->position.y > target_y + 5.0f)
-        player->velocity = (Vector2){0.0f, -speed};
+        player->velocity = (Vector2){0.0f, -PADDLE_SPEED};
 
     player->position = Vector2Add(player->position, Vector2Scale(player->velocity, dt));
     player->position.y = Clamp(player->position.y, (PADDLE_HEIGHT / 2.0f), SCREEN_HEIGHT - (PADDLE_HEIGHT / 2.0f));
@@ -203,16 +210,15 @@ int main(void)
         float dt = GetFrameTime();
 
         update_player_one(dt);
-        update_player_two(&entities[playerTwoId], &entities[ballId], dt);
-        update_ball(&entities[ballId], dt);
+        update_player_two(dt);
+        update_ball(dt);
 
         check_collisions();
 
         BeginDrawing();
         ClearBackground(BLACK);
-        draw_paddle(&entities[playerOneId]);
-        draw_paddle(&entities[playerTwoId]);
-        draw_ball(&entities[ballId]);
+        draw_paddles();
+        draw_ball();
         DrawText("Pong", SCREEN_WIDTH - MeasureText("Pong", 20) - 20, 20, 20, WHITE);
         DrawFPS(10, 10);
         EndDrawing();
