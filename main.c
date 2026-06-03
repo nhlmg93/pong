@@ -5,7 +5,13 @@
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
 
-#define MAX_ENTITY 64
+#define PADDLE_X_INSET 30.0f
+#define PADDLE_WIDTH 15.0f
+#define PADDLE_HEIGHT 100.0f
+
+#define BALL_SPEED 350.0f
+
+#define MAX_ENTITY 5
 #define E_NULL 0
 
 typedef enum {
@@ -45,10 +51,9 @@ void reset_game(void);
 void update_player_one(float dt);
 
 void update_player_two(Entity *player, Entity *ball, float dt);
-void draw_paddle(Entity *player);
-
 void update_ball(Entity *ball, float dt);
 void draw_ball(Entity *ball);
+void draw_paddle(Entity *player);
 void check_collisions(void);
 
 EntityId playerOneId;
@@ -64,33 +69,29 @@ static Vector2 random_ball_velocity(float speed)
 
 void reset_game(void)
 {
-    const float paddle_x_inset = 30.0f;
-    const float ball_speed = 350.0f;
-
     for (int i = 1; i < MAX_ENTITY; i++)
         entities[i].type = E_none;
 
     playerOneId = alloc_entity();
     entities[playerOneId].type = E_player_one;
-    entities[playerOneId].position = (Vector2){paddle_x_inset, SCREEN_HEIGHT / 2.0f};
+    entities[playerOneId].position = (Vector2){PADDLE_X_INSET, SCREEN_HEIGHT / 2.0f};
     entities[playerOneId].velocity = (Vector2){0.0f, 0.0f};
 
     playerTwoId = alloc_entity();
     entities[playerTwoId].type = E_player_two;
-    entities[playerTwoId].position = (Vector2){SCREEN_WIDTH - paddle_x_inset, SCREEN_HEIGHT / 2.0f};
+    entities[playerTwoId].position = (Vector2){SCREEN_WIDTH - PADDLE_X_INSET, SCREEN_HEIGHT / 2.0f};
     entities[playerTwoId].velocity = Vector2Zero();
 
     ballId = alloc_entity();
     entities[ballId].type = E_ball;
     entities[ballId].position = (Vector2){SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f};
-    entities[ballId].velocity = random_ball_velocity(ball_speed);
+    entities[ballId].velocity = random_ball_velocity(BALL_SPEED);
 }
 
 void update_player_one(float dt)
 {
     Entity *player = &entities[playerOneId];
     const float speed = 400.0f;
-    const float half_height = 50.0f;
 
     player->velocity = Vector2Zero();
     if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))
@@ -99,20 +100,7 @@ void update_player_one(float dt)
         player->velocity = (Vector2){0.0f, speed};
 
     player->position = Vector2Add(player->position, Vector2Scale(player->velocity, dt));
-    player->position.y = Clamp(player->position.y, half_height, SCREEN_HEIGHT - half_height);
-}
-
-void draw_paddle(Entity *player)
-{
-    const float width = 15.0f;
-    const float height = 100.0f;
-    Rectangle rect = {
-        player->position.x - width / 2.0f,
-        player->position.y - height / 2.0f,
-        width,
-        height,
-    };
-    DrawRectangleRec(rect, WHITE);
+    player->position.y = Clamp(player->position.y, (PADDLE_HEIGHT / 2.0f), SCREEN_HEIGHT - (PADDLE_HEIGHT / 2.0f));
 }
 
 void update_ball(Entity *ball, float dt)
@@ -126,13 +114,21 @@ void draw_ball(Entity *ball)
     DrawCircleV(ball->position, radius, WHITE);
 }
 
+void draw_paddle(Entity *player)
+{
+    Rectangle rect = {
+        player->position.x - (PADDLE_WIDTH / 2.0f),
+        player->position.y - (PADDLE_HEIGHT / 2.0f),
+        PADDLE_WIDTH,
+        PADDLE_HEIGHT,
+    };
+    DrawRectangleRec(rect, WHITE);
+}
+
 void check_collisions(void)
 {
     Entity *ball = &entities[ballId];
     const float ball_radius = 10.0f;
-    const float paddle_width = 15.0f;
-    const float paddle_height = 100.0f;
-    const float ball_speed = 350.0f;
 
     if (ball->position.y - ball_radius <= 0.0f) {
         ball->position.y = ball_radius;
@@ -146,10 +142,10 @@ void check_collisions(void)
     for (int i = 0; i < 2; i++) {
         Entity *paddle = paddles[i];
         Rectangle rect = {
-            paddle->position.x - paddle_width / 2.0f,
-            paddle->position.y - paddle_height / 2.0f,
-            paddle_width,
-            paddle_height,
+            paddle->position.x - (PADDLE_WIDTH / 2.0f),
+            paddle->position.y - (PADDLE_HEIGHT / 2.0f),
+            PADDLE_WIDTH,
+            PADDLE_HEIGHT,
         };
 
         if (!CheckCollisionCircleRec(ball->position, ball_radius, rect))
@@ -161,12 +157,12 @@ void check_collisions(void)
             continue;
 
         float hit_offset =
-            (ball->position.y - paddle->position.y) / (paddle_height / 2.0f);
+            (ball->position.y - paddle->position.y) / (PADDLE_HEIGHT / 2.0f);
         hit_offset = Clamp(hit_offset, -1.0f, 1.0f);
 
         ball->velocity.x = (i == 0 ? 1.0f : -1.0f) * fabsf(ball->velocity.x);
-        ball->velocity.y = hit_offset * ball_speed;
-        ball->velocity = Vector2Scale(Vector2Normalize(ball->velocity), ball_speed);
+        ball->velocity.y = hit_offset * BALL_SPEED;
+        ball->velocity = Vector2Scale(Vector2Normalize(ball->velocity), BALL_SPEED);
 
         if (i == 0)
             ball->position.x = rect.x + rect.width + ball_radius;
@@ -176,26 +172,24 @@ void check_collisions(void)
 
     if (ball->position.x < -ball_radius || ball->position.x > SCREEN_WIDTH + ball_radius) {
         ball->position = (Vector2){SCREEN_WIDTH / 2.0f, SCREEN_HEIGHT / 2.0f};
-        ball->velocity = random_ball_velocity(ball_speed);
+        ball->velocity = random_ball_velocity(BALL_SPEED);
     }
 }
 
 void update_player_two(Entity *player, Entity *ball, float dt)
 {
     const float speed = 400.0f;
-    const float half_height = 50.0f;
-    const float deadzone = 5.0f;
 
     float target_y = ball->position.y;
 
     player->velocity = Vector2Zero();
-    if (player->position.y < target_y - deadzone)
+    if (player->position.y < target_y - 5.0f)
         player->velocity = (Vector2){0.0f, speed};
-    else if (player->position.y > target_y + deadzone)
+    else if (player->position.y > target_y + 5.0f)
         player->velocity = (Vector2){0.0f, -speed};
 
     player->position = Vector2Add(player->position, Vector2Scale(player->velocity, dt));
-    player->position.y = Clamp(player->position.y, half_height, SCREEN_HEIGHT - half_height);
+    player->position.y = Clamp(player->position.y, (PADDLE_HEIGHT / 2.0f), SCREEN_HEIGHT - (PADDLE_HEIGHT / 2.0f));
 }
 
 int main(void)
